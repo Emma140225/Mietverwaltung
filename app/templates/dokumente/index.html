@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Dokumentenarchiv (PDF) – Hausverwaltung{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">PDF-Dokumentenarchiv</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">
+        Strukturierte Ablage auf dem NAS-Volume inkl. SHA-256-Integritätsprüfung und direkter Browser-Vorschau
+    </p>
+</div>
+
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <form method="get" action="/dokumente" class="mb-4 flex flex-wrap items-end gap-2 text-xs">
+            <div>
+                <label class="block font-medium text-slate-600 dark:text-slate-300">Objekt</label>
+                <select name="objekt_id" class="mt-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    <option value="">Alle</option>
+                    {% for o in objekte %}
+                    <option value="{{ o.id }}" {% if filter_objekt_id == o.id %}selected{% endif %}>{{ o.bezeichnung }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block font-medium text-slate-600 dark:text-slate-300">Kategorie</label>
+                <select name="kategorie" class="mt-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    <option value="">Alle</option>
+                    {% for kat in kategorien %}
+                    <option value="{{ kat.value }}" {% if filter_kategorie == kat.value %}selected{% endif %}>{{ kat.value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block font-medium text-slate-600 dark:text-slate-300">Jahr</label>
+                <input type="number" name="jahr" value="{{ filter_jahr or '' }}" placeholder="2026" class="mt-1 w-20 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <button type="submit" class="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                Filtern
+            </button>
+        </form>
+
+        <div class="overflow-x-auto">
+            <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                <thead>
+                    <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                        <th class="pb-2">Datei &amp; Pfad</th>
+                        <th class="pb-2">Kategorie / Jahr</th>
+                        <th class="pb-2">SHA-256</th>
+                        <th class="pb-2 text-right">Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                    {% for d in dokumente %}
+                    <tr>
+                        <td class="py-2.5">
+                            <div class="font-medium text-slate-900 dark:text-white">{{ d.original_dateiname }}</div>
+                            <div class="text-[11px] font-mono text-slate-500 dark:text-slate-400">{{ d.relativer_pfad }}</div>
+                        </td>
+                        <td class="py-2.5 text-xs">
+                            <span class="rounded bg-slate-100 px-2 py-0.5 font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">{{ d.kategorie.value }}</span>
+                            <span class="ml-1 text-slate-500 dark:text-slate-400">{{ d.jahr }}</span>
+                        </td>
+                        <td class="py-2.5 font-mono text-xs text-slate-500 dark:text-slate-400" title="{{ d.sha256_hash }}">
+                            {{ d.sha256_hash[:12] }}…
+                        </td>
+                        <td class="py-2.5 text-right space-x-2 whitespace-nowrap">
+                            <a href="/api/dokumente/{{ d.id }}/vorschau" target="_blank" class="text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400">Vorschau</a>
+                            <a href="/api/dokumente/{{ d.id }}/download" class="text-xs font-medium text-slate-700 hover:underline dark:text-slate-300">Download</a>
+                            <form action="/dokumente/{{ d.id }}/delete" method="post" class="inline" onsubmit="return confirm('Dokument wirklich löschen?');">
+                                <button type="submit" class="text-xs font-medium text-rose-600 hover:underline dark:text-rose-400">Löschen</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="py-6 text-center text-slate-500 dark:text-slate-400">Keine Dokumente vorhanden.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Neues PDF-Dokument hochladen</h2>
+        <form action="/dokumente/upload" method="post" enctype="multipart/form-data" class="space-y-3 text-sm">
+            <input type="hidden" name="redirect_to" value="/dokumente">
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Objekt *</label>
+                <select name="objekt_id" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    <option value="">– Objekt wählen –</option>
+                    {% for o in objekte %}
+                    <option value="{{ o.id }}">{{ o.bezeichnung }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Wohneinheit (optional)</label>
+                <select name="wohneinheit_id" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    <option value="">Gesamtobjekt</option>
+                    {% for e in einheiten %}
+                    <option value="{{ e.id }}">{{ e.objekt.bezeichnung }} · {{ e.bezeichnung }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Kategorie *</label>
+                    <select name="kategorie" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                        {% for kat in kategorien %}
+                        <option value="{{ kat.value }}">{{ kat.value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Jahr *</label>
+                    <input type="number" name="jahr" value="{{ standard_jahr }}" min="1990" max="2100" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Beschreibung</label>
+                <input type="text" name="beschreibung" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">PDF-Datei *</label>
+                <input type="file" name="file" accept="application/pdf,.pdf" required class="mt-1 w-full text-xs text-slate-700 dark:text-slate-300">
+            </div>
+            <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">
+                Hochladen &amp; Prüfen
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

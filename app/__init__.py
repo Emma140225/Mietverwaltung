@@ -1,0 +1,1 @@
+"""Kernpaket der Anwendung."""

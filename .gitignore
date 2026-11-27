@@ -1,0 +1,20 @@
+# Python / Virtualenv
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Umgebung & Lokale Daten
+.env
+data/
+*.log
+
+# IDE
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,76 @@
+<div class="overflow-x-auto">
+    <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+        <thead>
+            <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                <th class="pb-2">Datum / Leistung</th>
+                <th class="pb-2">Objekt / Einheit</th>
+                <th class="pb-2">Kostenart</th>
+                <th class="pb-2">Empfänger / Zweck</th>
+                <th class="pb-2 text-right">Betrag</th>
+                <th class="pb-2">Belege</th>
+                <th class="pb-2 text-right">Aktionen</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+            {% for b in buchungen %}
+            <tr>
+                <td class="py-2.5 whitespace-nowrap">
+                    <div class="font-medium text-slate-900 dark:text-white">{{ b.buchungsdatum | de_date }}</div>
+                    {% if b.leistungszeitraum_von or b.leistungszeitraum_bis %}
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400">
+                        {{ b.leistungszeitraum_von | de_date }} – {{ b.leistungszeitraum_bis | de_date }}
+                    </div>
+                    {% endif %}
+                </td>
+                <td class="py-2.5">
+                    <div class="font-medium text-slate-900 dark:text-white">{{ b.objekt.bezeichnung }}</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">
+                        {{ b.wohneinheit.bezeichnung if b.wohneinheit else 'Gesamtobjekt' }}
+                    </div>
+                </td>
+                <td class="py-2.5">
+                    <div class="text-slate-900 dark:text-slate-100">{{ b.kostenart.name }}</div>
+                    <div class="flex flex-wrap gap-1 mt-0.5">
+                        {% if b.kostenart.umlagefaehig %}
+                            <span class="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">umlagefähig</span>
+                        {% endif %}
+                        {% if b.ist_sonderzahlung %}
+                            <span class="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-800 dark:bg-purple-900/50 dark:text-purple-200">Sonderzahlung</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="py-2.5">
+                    <div class="font-medium text-slate-800 dark:text-slate-200">{{ b.empfaenger_sender }}</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">{{ b.verwendungszweck }}</div>
+                </td>
+                <td class="py-2.5 text-right font-semibold tabular-nums whitespace-nowrap {% if b.kostenart.richtung.value == 'einnahme' %}text-emerald-700 dark:text-emerald-400{% else %}text-rose-700 dark:text-rose-400{% endif %}">
+                    {% if b.kostenart.richtung.value == 'einnahme' %}+{% else %}-{% endif %}{{ b.betrag | eur }}
+                </td>
+                <td class="py-2.5 text-xs">
+                    {% for d in b.dokumente %}
+                        <div>
+                            <a href="/api/dokumente/{{ d.id }}/vorschau" target="_blank" class="text-emerald-700 hover:underline dark:text-emerald-400">
+                                PDF #{{ d.id }}
+                            </a>
+                        </div>
+                    {% else %}
+                        <span class="text-slate-400 dark:text-slate-500">–</span>
+                    {% endfor %}
+                </td>
+                <td class="py-2.5 text-right space-x-2 whitespace-nowrap">
+                    <button type="button"
+                        @click="editBuchung = {{ {'id': b.id, 'version': b.version, 'objekt_id': b.objekt_id, 'wohneinheit_id': b.wohneinheit_id, 'mietvertrag_id': b.mietvertrag_id, 'kostenart_id': b.kostenart_id, 'buchungsdatum': b.buchungsdatum.isoformat(), 'leistungszeitraum_von': b.leistungszeitraum_von.isoformat() if b.leistungszeitraum_von else '', 'leistungszeitraum_bis': b.leistungszeitraum_bis.isoformat() if b.leistungszeitraum_bis else '', 'betrag': b.betrag|string, 'empfaenger_sender': b.empfaenger_sender, 'verwendungszweck': b.verwendungszweck, 'ist_sonderzahlung': b.ist_sonderzahlung, 'belegnummer': b.belegnummer or ''} | tojson | forceescape }}"
+                        class="text-xs font-medium text-slate-700 hover:text-emerald-700 dark:text-slate-300 dark:hover:text-emerald-400">Bearbeiten</button>
+                    <form action="/buchungen/{{ b.id }}/delete" method="post" class="inline" onsubmit="return confirm('Buchung wirklich löschen?');">
+                        <button type="submit" class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300">Löschen</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" class="py-6 text-center text-slate-500 dark:text-slate-400">Keine Buchungen für diesen Filter vorhanden.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

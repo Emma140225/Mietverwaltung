@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Mietvertrag #{{ vertrag.id }} – Hausverwaltung{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div>
+        <div class="text-xs text-slate-500 dark:text-slate-400">
+            <a href="/stammdaten?tab=vertraege" class="hover:underline">Mieter &amp; Stammdaten</a> / Vertrag #{{ vertrag.id }}
+        </div>
+        <h1 class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+            {{ vertrag.wohneinheit.objekt.bezeichnung }} · {{ vertrag.wohneinheit.bezeichnung }}
+        </h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">
+            Laufzeit ab {{ vertrag.vertragsbeginn | de_date }}
+            {% if vertrag.vertragsende %}bis {{ vertrag.vertragsende | de_date }}{% else %}(unbefristet){% endif %}
+            · Zahlungsziel: {{ vertrag.zahlungsziel_werktag }}. Werktag
+        </p>
+    </div>
+    <div class="flex gap-2">
+        {% if vertrag.kaution %}
+            <a href="/kautionen/{{ vertrag.kaution.id }}" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
+                Zur Kaution ({{ vertrag.kaution.status.value }})
+            </a>
+        {% else %}
+            <a href="/kautionen?mietvertrag_id={{ vertrag.id }}" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
+                + Kaution hinterlegen
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Vertragspartner & Metadaten -->
+<div class="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="mb-3 text-base font-semibold text-slate-900 dark:text-white">Vertragspartner</h2>
+        <ul class="space-y-2 text-sm">
+            {% for vm in vertrag.mieter_zuordnungen %}
+            <li class="flex items-start justify-between rounded-lg bg-slate-50 p-2.5 dark:bg-slate-800/70">
+                <div>
+                    <div class="font-medium text-slate-900 dark:text-white">{{ vm.mieter.voller_name }}</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">{{ vm.mieter.email or '' }} {{ vm.mieter.telefon or '' }}</div>
+                </div>
+                {% if vm.hauptmieter %}
+                    <span class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">Hauptmieter</span>
+                {% else %}
+                    <span class="rounded bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-300">Mitmieter</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="mb-3 text-base font-semibold text-slate-900 dark:text-white">Vertragsdaten aktualisieren</h2>
+        <form action="/mietvertraege/{{ vertrag.id }}/update" method="post" class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-4">
+            <input type="hidden" name="wohneinheit_id" value="{{ vertrag.wohneinheit_id }}">
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Vertragsnummer</label>
+                <input type="text" name="vertragsnummer" value="{{ vertrag.vertragsnummer or '' }}" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Vertragsbeginn *</label>
+                <input type="date" name="vertragsbeginn" value="{{ vertrag.vertragsbeginn.isoformat() }}" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Vertragsende</label>
+                <input type="date" name="vertragsende" value="{{ vertrag.vertragsende.isoformat() if vertrag.vertragsende else '' }}" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Kündigungsdatum</label>
+                <input type="date" name="kuendigungsdatum" value="{{ vertrag.kuendigungsdatum.isoformat() if vertrag.kuendigungsdatum else '' }}" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Zahlungsziel (Werktag)</label>
+                <input type="number" name="zahlungsziel_werktag" min="1" max="28" value="{{ vertrag.zahlungsziel_werktag }}" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div class="sm:col-span-2">
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Notizen</label>
+                <input type="text" name="notizen" value="{{ vertrag.notizen or '' }}" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div class="flex items-end">
+                <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">
+                    Vertrag speichern
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Historisierte Mietkonditionen & Stichtags-Anpassung (HTMX-Teilbereich) -->
+<div id="konditionen-bereich" class="mb-6">
+    {% include "stammdaten/partials/konditionen_section.html" %}
+</div>
+
+<!-- Zugehörige PDF-Dokumente (Mietvertrag, Übergabeprotokolle) -->
+<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Vertragsdokumente (PDF)</h2>
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div class="lg:col-span-2 overflow-x-auto">
+            <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                <thead>
+                    <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                        <th class="pb-2">Datei</th>
+                        <th class="pb-2">Kategorie</th>
+                        <th class="pb-2">Jahr</th>
+                        <th class="pb-2">SHA-256 (gekürzt)</th>
+                        <th class="pb-2 text-right">Aktion</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                    {% for d in dokumente %}
+                    <tr>
+                        <td class="py-2 font-medium text-slate-900 dark:text-white">{{ d.original_dateiname }}</td>
+                        <td class="py-2 text-slate-600 dark:text-slate-300">{{ d.kategorie.value }}</td>
+                        <td class="py-2 text-slate-600 dark:text-slate-300">{{ d.jahr }}</td>
+                        <td class="py-2 font-mono text-xs text-slate-500 dark:text-slate-400">{{ d.sha256_hash[:12] }}…</td>
+                        <td class="py-2 text-right space-x-2">
+                            <a href="/api/dokumente/{{ d.id }}/vorschau" target="_blank" class="text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400">Vorschau</a>
+                            <a href="/api/dokumente/{{ d.id }}/download" class="text-xs font-medium text-slate-700 hover:underline dark:text-slate-300">Download</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="py-4 text-center text-slate-500 dark:text-slate-400">Noch keine Vertragsdokumente hochgeladen.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <form action="/dokumente/upload" method="post" enctype="multipart/form-data" class="space-y-3 rounded-lg bg-slate-50 p-4 text-sm dark:bg-slate-800/70">
+            <input type="hidden" name="objekt_id" value="{{ vertrag.wohneinheit.objekt_id }}">
+            <input type="hidden" name="wohneinheit_id" value="{{ vertrag.wohneinheit_id }}">
+            <input type="hidden" name="mietvertrag_id" value="{{ vertrag.id }}">
+            <input type="hidden" name="redirect_to" value="/mietvertraege/{{ vertrag.id }}">
+            <div class="font-medium text-slate-900 dark:text-white">PDF zum Vertrag hochladen</div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Kategorie *</label>
+                <select name="kategorie" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    <option value="mietvertrag">Mietvertrag</option>
+                    <option value="uebergabeprotokoll">Übergabeprotokoll</option>
+                    <option value="kaution">Kaution</option>
+                    <option value="sonstiges">Sonstiges</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Jahr *</label>
+                <input type="number" name="jahr" value="{{ vertrag.vertragsbeginn.year }}" min="1990" max="2100" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">PDF-Datei *</label>
+                <input type="file" name="file" accept="application/pdf,.pdf" required class="mt-1 w-full text-xs text-slate-700 dark:text-slate-300">
+            </div>
+            <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">
+                PDF hochladen
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

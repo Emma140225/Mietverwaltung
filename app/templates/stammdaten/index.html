@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+{% block title %}Mieter &amp; Stammdaten – Hausverwaltung{% endblock %}
+
+{% block content %}
+<div x-data="{ tab: '{{ active_tab | default('mieter') }}', editObjekt: null, editEinheit: null, editMieter: null }">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Mieter &amp; Stammdaten</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Mieter, Verträge, Wohneinheiten und Objekte verwalten</p>
+        </div>
+        <div class="flex flex-wrap gap-1 rounded-lg bg-slate-200/70 p-1 text-sm font-medium dark:bg-slate-800">
+            <button type="button" @click="tab = 'mieter'" :class="tab === 'mieter' ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'" class="rounded-md px-3 py-1.5">
+                Mieter ({{ mieter | length }})
+            </button>
+            <button type="button" @click="tab = 'vertraege'" :class="tab === 'vertraege' ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'" class="rounded-md px-3 py-1.5">
+                Mietverträge ({{ vertraege | length }})
+            </button>
+            <button type="button" @click="tab = 'einheiten'" :class="tab === 'einheiten' ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'" class="rounded-md px-3 py-1.5">
+                Wohneinheiten ({{ einheiten | length }})
+            </button>
+            <button type="button" @click="tab = 'objekte'" :class="tab === 'objekte' ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'" class="rounded-md px-3 py-1.5">
+                Objekte ({{ objekte | length }})
+            </button>
+        </div>
+    </div>
+
+    <!-- TAB 1 (Standard): MIETER -->
+    <div x-show="tab === 'mieter'" class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div class="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Mieterkartei</h2>
+            <div class="overflow-x-auto">
+                <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                    <thead>
+                        <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                            <th class="pb-2">Name</th>
+                            <th class="pb-2">Kontakt</th>
+                            <th class="pb-2">Aktuelle Anschrift</th>
+                            <th class="pb-2">IBAN</th>
+                            <th class="pb-2 text-right">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                        {% for m in mieter %}
+                        <tr>
+                            <td class="py-2.5 font-medium text-slate-900 dark:text-white">{{ m.anrede or '' }} {{ m.voller_name }}</td>
+                            <td class="py-2.5 text-xs text-slate-600 dark:text-slate-300">
+                                <div>{{ m.email or '–' }}</div>
+                                <div>{{ m.telefon or '' }}</div>
+                            </td>
+                            <td class="py-2.5 text-xs text-slate-600 dark:text-slate-300">
+                                {% if m.aktuelle_strasse %}{{ m.aktuelle_strasse }}, {{ m.aktuelle_plz }} {{ m.aktueller_ort }}{% else %}–{% endif %}
+                            </td>
+                            <td class="py-2.5 font-mono text-xs text-slate-600 dark:text-slate-300">{{ m.iban or '–' }}</td>
+                            <td class="py-2.5 text-right space-x-2 whitespace-nowrap">
+                                <button type="button"
+                                    @click="editMieter = {{ {'id': m.id, 'anrede': m.anrede or '', 'vorname': m.vorname, 'nachname': m.nachname, 'email': m.email or '', 'telefon': m.telefon or '', 'aktuelle_strasse': m.aktuelle_strasse or '', 'aktuelle_plz': m.aktuelle_plz or '', 'aktueller_ort': m.aktueller_ort or '', 'iban': m.iban or '', 'notizen': m.notizen or ''} | tojson | forceescape }}"
+                                    class="text-xs font-medium text-slate-700 hover:text-emerald-700 dark:text-slate-300 dark:hover:text-emerald-400">Bearbeiten</button>
+                                <form action="/mieter/{{ m.id }}/delete" method="post" class="inline" onsubmit="return confirm('Mieter wirklich löschen?');">
+                                    <button type="submit" class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300">Löschen</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="py-4 text-center text-slate-500 dark:text-slate-400">Noch keine Mieter angelegt.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white" x-text="editMieter ? 'Mieter bearbeiten' : 'Neuer Mieter'"></h2>
+            <form :action="editMieter ? '/mieter/' + editMieter.id + '/update' : '/mieter'" method="post" class="space-y-3 text-sm">
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Anrede</label>
+                        <input type="text" name="anrede" maxlength="20" :value="editMieter ? editMieter.anrede : ''" placeholder="Frau / Herr" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Vorname *</label>
+                        <input type="text" name="vorname" required maxlength="100" :value="editMieter ? editMieter.vorname : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Nachname *</label>
+                    <input type="text" name="nachname" required maxlength="100" :value="editMieter ? editMieter.nachname : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">E-Mail</label>
+                        <input type="email" name="email" maxlength="200" :value="editMieter ? editMieter.email : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Telefon</label>
+                        <input type="text" name="telefon" maxlength="50" :value="editMieter ? editMieter.telefon : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Aktuelle Anschrift (Straße)</label>
+                    <input type="text" name="aktuelle_strasse" maxlength="200" :value="editMieter ? editMieter.aktuelle_strasse : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">PLZ</label>
+                        <input type="text" name="aktuelle_plz" maxlength="10" :value="editMieter ? editMieter.aktuelle_plz : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Ort</label>
+                        <input type="text" name="aktueller_ort" maxlength="100" :value="editMieter ? editMieter.aktueller_ort : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">IBAN (für Rückzahlungen)</label>
+                    <input type="text" name="iban" maxlength="34" :value="editMieter ? editMieter.iban : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Notizen</label>
+                    <textarea name="notizen" rows="2" x-effect="$el.value = editMieter ? (editMieter.notizen || '') : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"></textarea>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">Speichern</button>
+                    <button type="button" x-show="editMieter" @click="editMieter = null" class="rounded-lg border border-slate-300 px-3 py-2 text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Abbrechen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TAB 2: MIETVERTRÄGE -->
+    <div x-show="tab === 'vertraege'" class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div class="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Mietverträge</h2>
+            <div class="overflow-x-auto">
+                <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                    <thead>
+                        <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                            <th class="pb-2">Einheit / Vertrag</th>
+                            <th class="pb-2">Mieter</th>
+                            <th class="pb-2">Laufzeit</th>
+                            <th class="pb-2 text-right">Aktuelle Warmmiete</th>
+                            <th class="pb-2 text-right">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                        {% for v in vertraege %}
+                        <tr>
+                            <td class="py-2.5">
+                                <div class="font-medium text-slate-900 dark:text-white">{{ v.wohneinheit.bezeichnung }}</div>
+                                <div class="text-xs text-slate-500 dark:text-slate-400">{{ v.wohneinheit.objekt.bezeichnung }}{% if v.vertragsnummer %} · {{ v.vertragsnummer }}{% endif %}</div>
+                            </td>
+                            <td class="py-2.5 text-xs">
+                                {% for vm in v.mieter_zuordnungen %}
+                                    <div>
+                                        {{ vm.mieter.voller_name }}
+                                        {% if vm.hauptmieter %}<span class="rounded bg-slate-100 px-1 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">HM</span>{% endif %}
+                                    </div>
+                                {% endfor %}
+                            </td>
+                            <td class="py-2.5 text-xs text-slate-600 dark:text-slate-300">
+                                ab {{ v.vertragsbeginn | de_date }}
+                                {% if v.vertragsende %}bis {{ v.vertragsende | de_date }}{% else %}(unbefristet){% endif %}
+                            </td>
+                            <td class="py-2.5 text-right tabular-nums font-medium">
+                                {% if v.konditionen_historie %}
+                                    {{ v.konditionen_historie[-1].gesamtmiete | eur }}
+                                {% else %}–{% endif %}
+                            </td>
+                            <td class="py-2.5 text-right">
+                                <a href="/mietvertraege/{{ v.id }}" class="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-800 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                                    Konditionen &amp; Akte
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="py-4 text-center text-slate-500 dark:text-slate-400">Noch keine Mietverträge angelegt.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Neuen Mietvertrag anlegen</h2>
+            <form action="/mietvertraege" method="post" class="space-y-3 text-sm">
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Wohneinheit *</label>
+                    <select name="wohneinheit_id" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                        <option value="">– Einheit wählen –</option>
+                        {% for e in einheiten %}
+                        <option value="{{ e.id }}">{{ e.objekt.bezeichnung }} · {{ e.bezeichnung }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Mieter (1..n auswählbar) *</label>
+                    <select name="mieter_ids" multiple required size="3" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                        {% for m in mieter %}
+                        <option value="{{ m.id }}">{{ m.nachname }}, {{ m.vorname }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Strg/Cmd für mehrere Mieter; erster ausgewählter Mieter wird Hauptmieter.</p>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Vertragsnummer</label>
+                        <input type="text" name="vertragsnummer" maxlength="60" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Zahlungsziel (Werktag) *</label>
+                        <input type="number" name="zahlungsziel_werktag" value="3" min="1" max="28" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Vertragsbeginn *</label>
+                        <input type="date" name="vertragsbeginn" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Vertragsende</label>
+                        <input type="date" name="vertragsende" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                </div>
+                <hr class="border-slate-200 dark:border-slate-800">
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Initiale Mietkonditionen</div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Kaltmiete *</label>
+                        <input type="number" step="0.01" min="0" name="kaltmiete" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">BK-VZ *</label>
+                        <input type="number" step="0.01" min="0" name="betriebskosten_vorauszahlung" value="0.00" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">HK-VZ *</label>
+                        <input type="number" step="0.01" min="0" name="heizkosten_vorauszahlung" value="0.00" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                </div>
+                <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">
+                    Mietvertrag anlegen
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TAB 3: WOHNEINHEITEN -->
+    <div x-show="tab === 'einheiten'" class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div class="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Wohneinheiten</h2>
+            <div class="overflow-x-auto">
+                <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                    <thead>
+                        <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                            <th class="pb-2">Einheit &amp; Objekt</th>
+                            <th class="pb-2">Lage / Etage</th>
+                            <th class="pb-2 text-right">Fläche</th>
+                            <th class="pb-2 text-right">Zimmer</th>
+                            <th class="pb-2">Status</th>
+                            <th class="pb-2 text-right">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                        {% for e in einheiten %}
+                        <tr>
+                            <td class="py-2.5">
+                                <div class="font-medium text-slate-900 dark:text-white">{{ e.bezeichnung }}</div>
+                                <div class="text-xs text-slate-500 dark:text-slate-400">{{ e.objekt.bezeichnung }}</div>
+                            </td>
+                            <td class="py-2.5 text-slate-600 dark:text-slate-300">{{ e.lage_etage }}</td>
+                            <td class="py-2.5 text-right tabular-nums">{{ e.wohnflaeche_qm | qm }}</td>
+                            <td class="py-2.5 text-right tabular-nums">{{ e.zimmeranzahl }}</td>
+                            <td class="py-2.5">
+                                <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium
+                                    {% if e.status.value == 'vermietet' %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200
+                                    {% elif e.status.value == 'leerstand' %}bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-200
+                                    {% elif e.status.value == 'renovierung' %}bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200
+                                    {% else %}bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300{% endif %}">
+                                    {{ e.status.value }}
+                                </span>
+                            </td>
+                            <td class="py-2.5 text-right space-x-2 whitespace-nowrap">
+                                <button type="button"
+                                    @click="editEinheit = {{ {'id': e.id, 'objekt_id': e.objekt_id, 'bezeichnung': e.bezeichnung, 'lage_etage': e.lage_etage, 'wohnflaeche_qm': e.wohnflaeche_qm|string, 'zimmeranzahl': e.zimmeranzahl|string, 'status': e.status.value, 'notizen': e.notizen or ''} | tojson | forceescape }}"
+                                    class="text-xs font-medium text-slate-700 hover:text-emerald-700 dark:text-slate-300 dark:hover:text-emerald-400">Bearbeiten</button>
+                                <form action="/wohneinheiten/{{ e.id }}/delete" method="post" class="inline" onsubmit="return confirm('Wohneinheit wirklich löschen?');">
+                                    <button type="submit" class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300">Löschen</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" class="py-4 text-center text-slate-500 dark:text-slate-400">Noch keine Wohneinheiten angelegt.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white" x-text="editEinheit ? 'Wohneinheit bearbeiten' : 'Neue Wohneinheit'"></h2>
+            <form :action="editEinheit ? '/wohneinheiten/' + editEinheit.id + '/update' : '/wohneinheiten'" method="post" class="space-y-3 text-sm">
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Objekt *</label>
+                    <select name="objekt_id" required x-effect="$el.value = editEinheit ? String(editEinheit.objekt_id) : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                        <option value="">– Objekt wählen –</option>
+                        {% for o in objekte %}
+                        <option value="{{ o.id }}">{{ o.bezeichnung }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Bezeichnung *</label>
+                    <input type="text" name="bezeichnung" required maxlength="100" :value="editEinheit ? editEinheit.bezeichnung : ''" placeholder="z. B. WE 01 - EG links" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Lage / Etage *</label>
+                    <input type="text" name="lage_etage" required maxlength="80" :value="editEinheit ? editEinheit.lage_etage : ''" placeholder="z. B. 1. OG rechts" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Wohnfläche (m²) *</label>
+                        <input type="number" step="0.01" min="0.01" name="wohnflaeche_qm" required :value="editEinheit ? editEinheit.wohnflaeche_qm : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Zimmeranzahl *</label>
+                        <input type="number" step="0.5" min="0.5" name="zimmeranzahl" required :value="editEinheit ? editEinheit.zimmeranzahl : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Status *</label>
+                    <select name="status" required x-effect="$el.value = editEinheit ? editEinheit.status : 'leerstand'" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                        {% for st in wohneinheit_status_liste %}
+                        <option value="{{ st.value }}">{{ st.value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Notizen</label>
+                    <textarea name="notizen" rows="2" x-effect="$el.value = editEinheit ? (editEinheit.notizen || '') : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"></textarea>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">Speichern</button>
+                    <button type="button" x-show="editEinheit" @click="editEinheit = null" class="rounded-lg border border-slate-300 px-3 py-2 text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Abbrechen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TAB 4: OBJEKTE -->
+    <div x-show="tab === 'objekte'" class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div class="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Immobilienobjekte</h2>
+            <div class="overflow-x-auto">
+                <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                    <thead>
+                        <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                            <th class="pb-2">Bezeichnung &amp; Adresse</th>
+                            <th class="pb-2">Baujahr</th>
+                            <th class="pb-2 text-right">Gesamtfläche</th>
+                            <th class="pb-2 text-right">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                        {% for o in objekte %}
+                        <tr>
+                            <td class="py-2.5">
+                                <div class="font-medium text-slate-900 dark:text-white">{{ o.bezeichnung }}</div>
+                                <div class="text-xs text-slate-500 dark:text-slate-400">{{ o.adresse }}</div>
+                            </td>
+                            <td class="py-2.5 text-slate-600 dark:text-slate-300">{{ o.baujahr or '–' }}</td>
+                            <td class="py-2.5 text-right tabular-nums">{{ o.gesamtflaeche_qm | qm }}</td>
+                            <td class="py-2.5 text-right space-x-2 whitespace-nowrap">
+                                <button type="button"
+                                    @click="editObjekt = {{ {'id': o.id, 'bezeichnung': o.bezeichnung, 'strasse': o.strasse, 'plz': o.plz, 'ort': o.ort, 'baujahr': o.baujahr or '', 'gesamtflaeche_qm': o.gesamtflaeche_qm|string, 'notizen': o.notizen or ''} | tojson | forceescape }}"
+                                    class="text-xs font-medium text-slate-700 hover:text-emerald-700 dark:text-slate-300 dark:hover:text-emerald-400">Bearbeiten</button>
+                                <form action="/objekte/{{ o.id }}/delete" method="post" class="inline" onsubmit="return confirm('Objekt wirklich löschen?');">
+                                    <button type="submit" class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300">Löschen</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="py-4 text-center text-slate-500 dark:text-slate-400">Noch keine Objekte angelegt.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white" x-text="editObjekt ? 'Objekt bearbeiten' : 'Neues Objekt anlegen'"></h2>
+            <form :action="editObjekt ? '/objekte/' + editObjekt.id + '/update' : '/objekte'" method="post" class="space-y-3 text-sm">
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Bezeichnung *</label>
+                    <input type="text" name="bezeichnung" required maxlength="120" :value="editObjekt ? editObjekt.bezeichnung : ''" placeholder="z. B. MFH Hauptstraße 12" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Straße &amp; Hausnummer *</label>
+                    <input type="text" name="strasse" required maxlength="200" :value="editObjekt ? editObjekt.strasse : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">PLZ *</label>
+                        <input type="text" name="plz" required maxlength="10" :value="editObjekt ? editObjekt.plz : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Ort *</label>
+                        <input type="text" name="ort" required maxlength="100" :value="editObjekt ? editObjekt.ort : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Baujahr</label>
+                        <input type="number" name="baujahr" min="1500" max="2100" :value="editObjekt ? editObjekt.baujahr : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Gesamtfläche (m²) *</label>
+                        <input type="number" step="0.01" min="0.01" name="gesamtflaeche_qm" required :value="editObjekt ? editObjekt.gesamtflaeche_qm : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Notizen</label>
+                    <textarea name="notizen" rows="2" :value="editObjekt ? editObjekt.notizen : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"></textarea>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">Speichern</button>
+                    <button type="button" x-show="editObjekt" @click="editObjekt = null" class="rounded-lg border border-slate-300 px-3 py-2 text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Abbrechen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

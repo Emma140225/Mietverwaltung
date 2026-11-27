@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mietverwaltung-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mietverwaltung}
+      POSTGRES_USER: ${POSTGRES_USER:-hausverwaltung}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss in .env gesetzt sein}
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      # Optional für lokale Wartung/Backup-Tools; bei reinem NAS-Betrieb ggf. auskommentieren
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hausverwaltung} -d ${POSTGRES_DB:-mietverwaltung}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mietverwaltung-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL muss in .env gesetzt sein}
+      DOKUMENTE_ROOT: ${DOKUMENTE_ROOT:-/data/dokumente}
+      APP_ENV: ${APP_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-25}
+      TZ: ${TZ:-Europe/Berlin}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - ${DOKUMENTE_HOST_PATH:-./data/dokumente}:/data/dokumente
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  pg_data:
+    driver: local

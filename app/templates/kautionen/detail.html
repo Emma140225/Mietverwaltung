@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Kaution #{{ kaution.id }} – Hausverwaltung{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="text-xs text-slate-500 dark:text-slate-400">
+        <a href="/kautionen" class="hover:underline">Kautionsverwaltung</a> / Kaution #{{ kaution.id }}
+    </div>
+    <h1 class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+        Kaution Vertrag #{{ kaution.mietvertrag_id }} · {{ kaution.mietvertrag.wohneinheit.bezeichnung }}
+    </h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">
+        {{ kaution.mietvertrag.wohneinheit.objekt.bezeichnung }} · Anlageform: {{ kaution.anlageform.value }}
+        {% if kaution.kontoreferenz %} · Ref.: {{ kaution.kontoreferenz }}{% endif %}
+    </p>
+</div>
+
+<!-- Kennzahlen -->
+<div class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">
+    <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-xs text-slate-500 dark:text-slate-400">Vereinbart</div>
+        <div class="mt-1 text-lg font-bold tabular-nums text-slate-900 dark:text-white">{{ uebersicht.vereinbarte_summe | eur }}</div>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-xs text-slate-500 dark:text-slate-400">Eingezahlt</div>
+        <div class="mt-1 text-lg font-bold tabular-nums text-emerald-700 dark:text-emerald-400">{{ uebersicht.eingezahlt_summe | eur }}</div>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-xs text-slate-500 dark:text-slate-400">Zinsen</div>
+        <div class="mt-1 text-lg font-bold tabular-nums text-slate-900 dark:text-white">{{ uebersicht.zinsen_summe | eur }}</div>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-xs text-slate-500 dark:text-slate-400">Aktueller Bestand</div>
+        <div class="mt-1 text-lg font-bold tabular-nums text-slate-900 dark:text-white">{{ uebersicht.aktueller_bestand | eur }}</div>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-xs text-slate-500 dark:text-slate-400">Offene Einzahlung</div>
+        <div class="mt-1 text-lg font-bold tabular-nums {% if uebersicht.offene_einzahlung > 0 %}text-amber-700 dark:text-amber-400{% else %}text-emerald-700 dark:text-emerald-400{% endif %}">
+            {{ uebersicht.offene_einzahlung | eur }}
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <!-- Bewegungen -->
+    <div class="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-base font-semibold text-slate-900 dark:text-white">Kautionsbewegungen</h2>
+            <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                Status: {{ kaution.status.value }}
+            </span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                <thead>
+                    <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                        <th class="pb-2">Datum</th>
+                        <th class="pb-2">Bewegungsart</th>
+                        <th class="pb-2">Rate</th>
+                        <th class="pb-2">Bemerkung</th>
+                        <th class="pb-2 text-right">Betrag</th>
+                        <th class="pb-2 text-right">Aktion</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                    {% for bw in kaution.bewegungen %}
+                    <tr>
+                        <td class="py-2">{{ bw.datum | de_date }}</td>
+                        <td class="py-2 font-medium text-slate-900 dark:text-white">{{ bw.typ.value }}</td>
+                        <td class="py-2 text-xs text-slate-500 dark:text-slate-400">{{ 'Rate ' ~ bw.rate_nummer if bw.rate_nummer else '–' }}</td>
+                        <td class="py-2 text-xs text-slate-600 dark:text-slate-300">{{ bw.bemerkung or '–' }}</td>
+                        <td class="py-2 text-right font-semibold tabular-nums {% if bw.typ.value in ['einzahlung_rate', 'zinsgutschrift'] %}text-emerald-700 dark:text-emerald-400{% else %}text-rose-700 dark:text-rose-400{% endif %}">
+                            {% if bw.typ.value in ['einzahlung_rate', 'zinsgutschrift'] %}+{% else %}-{% endif %}{{ bw.betrag | eur }}
+                        </td>
+                        <td class="py-2 text-right">
+                            <form action="/kautionen/{{ kaution.id }}/bewegungen/{{ bw.id }}/delete" method="post" class="inline" onsubmit="return confirm('Bewegung löschen?');">
+                                <button type="submit" class="text-xs font-medium text-rose-600 hover:underline dark:text-rose-400">Löschen</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="py-4 text-center text-slate-500 dark:text-slate-400">Noch keine Bewegungen gebucht.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Bewegung buchen -->
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Bewegung buchen</h2>
+        <form action="/kautionen/{{ kaution.id }}/bewegungen" method="post" class="space-y-3 text-sm">
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Datum *</label>
+                <input type="date" name="datum" value="{{ heute.isoformat() }}" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Art der Bewegung *</label>
+                <select name="typ" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    <option value="einzahlung_rate">Einzahlung / Rate (§ 551 BGB)</option>
+                    <option value="zinsgutschrift">Zinsgutschrift</option>
+                    <option value="einbehalt">Einbehalt bei Auszug</option>
+                    <option value="rueckzahlung">Rückzahlung an Mieter</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Betrag (EUR) *</label>
+                    <input type="number" step="0.01" min="0.01" name="betrag" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Rate (1–3, optional)</label>
+                    <select name="rate_nummer" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                        <option value="">–</option>
+                        <option value="1">1. Rate</option>
+                        <option value="2">2. Rate</option>
+                        <option value="3">3. Rate</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Bemerkung</label>
+                <input type="text" name="bemerkung" maxlength="300" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">
+                Bewegung speichern
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

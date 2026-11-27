@@ -1,0 +1,161 @@
+<div x-data="{ ansicht: 'einheit' }" class="space-y-6">
+    <div class="flex gap-1 rounded-lg bg-slate-200/70 p-1 text-sm font-medium w-fit dark:bg-slate-800">
+        <button type="button" @click="ansicht = 'einheit'" :class="ansicht === 'einheit' ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-white' : 'text-slate-600 dark:text-slate-300'" class="rounded-md px-4 py-1.5">
+            Pro Mieteinheit ({{ einheit_rows | length }})
+        </button>
+        <button type="button" @click="ansicht = 'objekt'" :class="ansicht === 'objekt' ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-white' : 'text-slate-600 dark:text-slate-300'" class="rounded-md px-4 py-1.5">
+            Gesamtobjekt &amp; Portfolio ({{ objekt_rows | length }})
+        </button>
+    </div>
+
+    <!-- ANSICHT 1: PRO MIETEINHEIT -->
+    <div x-show="ansicht === 'einheit'" class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-base font-semibold text-slate-900 dark:text-white">Soll/Ist-Gegenüberstellung pro Mieteinheit</h2>
+            <div class="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded border border-rose-300 bg-rose-100 dark:border-rose-700 dark:bg-rose-900/50"></span> Leerstand</span>
+                <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded border border-amber-300 bg-amber-100 dark:border-amber-700 dark:bg-amber-900/50"></span> Unterjähriger Ein-/Auszug</span>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                <thead>
+                    <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                        <th class="pb-2">Monat</th>
+                        <th class="pb-2">Einheit</th>
+                        <th class="pb-2 text-center">Belegung</th>
+                        <th class="pb-2 text-right">Kaltmiete Soll</th>
+                        <th class="pb-2 text-right">NK-Abschlag Soll</th>
+                        <th class="pb-2 text-right">Gesamt Soll</th>
+                        <th class="pb-2 text-right">Ist-Eingang</th>
+                        <th class="pb-2 text-right">Differenz (Saldo)</th>
+                        <th class="pb-2 text-right">Sonderzahlungen</th>
+                        <th class="pb-2">Kautionsstatus</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                    {% for r in einheit_rows %}
+                    <tr class="{% if r.ist_leerstand %}row-leerstand{% elif r.ist_teilleerstand %}row-teilleerstand{% endif %}">
+                        <td class="py-2 font-medium text-slate-900 whitespace-nowrap dark:text-white">{{ r.monat | de_month }}</td>
+                        <td class="py-2">
+                            <div class="font-medium text-slate-900 dark:text-white">{{ r.wohneinheit_bezeichnung }}</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">{{ r.objekt_bezeichnung }}</div>
+                        </td>
+                        <td class="py-2 text-center text-xs whitespace-nowrap">
+                            {% if r.ist_leerstand %}
+                                <span class="rounded bg-rose-200/80 px-2 py-0.5 font-semibold text-rose-900 dark:bg-rose-900/70 dark:text-rose-200">
+                                    Leerstand (0/{{ r.tage_im_monat }} T.)
+                                </span>
+                            {% elif r.ist_teilleerstand %}
+                                <span class="rounded bg-amber-200/80 px-2 py-0.5 font-medium text-amber-900 dark:bg-amber-900/70 dark:text-amber-200">
+                                    {{ r.vermietete_tage }}/{{ r.tage_im_monat }} Tage
+                                </span>
+                            {% else %}
+                                <span class="text-slate-600 dark:text-slate-300">{{ r.vermietete_tage }}/{{ r.tage_im_monat }} T.</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-2 text-right tabular-nums">{{ r.kaltmiete_soll | eur }}</td>
+                        <td class="py-2 text-right tabular-nums">{{ r.nk_abschlag_soll | eur }}</td>
+                        <td class="py-2 text-right font-medium tabular-nums">{{ r.gesamt_soll | eur }}</td>
+                        <td class="py-2 text-right tabular-nums">{{ r.ist_zahlungseingang | eur }}</td>
+                        <td class="py-2 text-right font-semibold tabular-nums {% if r.differenz_saldo < 0 %}text-rose-700 dark:text-rose-400{% elif r.differenz_saldo > 0 %}text-emerald-700 dark:text-emerald-400{% else %}text-slate-700 dark:text-slate-300{% endif %}">
+                            {{ r.differenz_saldo | eur }}
+                        </td>
+                        <td class="py-2 text-right tabular-nums text-purple-700 dark:text-purple-400">{{ r.sonderzahlungen | eur }}</td>
+                        <td class="py-2 text-xs">
+                            {% if r.kaution_status %}
+                                <span class="rounded-full px-2 py-0.5 font-medium
+                                    {% if r.kaution_status == 'vollstaendig' %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200
+                                    {% elif r.kaution_status in ['offen', 'teilweise_eingegangen'] %}bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200
+                                    {% else %}bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300{% endif %}">
+                                    {{ r.kaution_status }}
+                                </span>
+                                {% if r.kaution_offen and r.kaution_offen > 0 %}
+                                    <div class="text-[11px] text-amber-700 dark:text-amber-400">offen: {{ r.kaution_offen | eur }}</div>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-slate-400 dark:text-slate-500">–</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="10" class="py-6 text-center text-slate-500 dark:text-slate-400">Keine Daten für diesen Zeitraum.</td></tr>
+                    {% endfor %}
+                </tbody>
+                {% if einheit_rows %}
+                <tfoot class="border-t-2 border-slate-300 bg-slate-50 font-semibold text-sm dark:border-slate-700 dark:bg-slate-800/80">
+                    <tr>
+                        <td colspan="3" class="py-2.5 pl-2">Summe Zeitraum</td>
+                        <td class="py-2.5 text-right tabular-nums">{{ einheit_summen.kaltmiete_soll | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums">{{ einheit_summen.nk_abschlag_soll | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums">{{ einheit_summen.gesamt_soll | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums">{{ einheit_summen.ist_zahlungseingang | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums {% if einheit_summen.differenz_saldo < 0 %}text-rose-700 dark:text-rose-400{% else %}text-emerald-700 dark:text-emerald-400{% endif %}">
+                            {{ einheit_summen.differenz_saldo | eur }}
+                        </td>
+                        <td class="py-2.5 text-right tabular-nums text-purple-700 dark:text-purple-400">{{ einheit_summen.sonderzahlungen | eur }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+
+    <!-- ANSICHT 2: GESAMTOBJEKT & PORTFOLIO -->
+    <div x-show="ansicht === 'objekt'" class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="mb-3 text-base font-semibold text-slate-900 dark:text-white">Gesamtobjekt &amp; Portfolio-Cashflow</h2>
+        <div class="overflow-x-auto">
+            <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                <thead>
+                    <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                        <th class="pb-2">Monat</th>
+                        <th class="pb-2">Objekt</th>
+                        <th class="pb-2 text-right">Miete Soll</th>
+                        <th class="pb-2 text-right">Miete Ist</th>
+                        <th class="pb-2 text-right">Sonderzahl.</th>
+                        <th class="pb-2 text-right">Ausg. umlagef.</th>
+                        <th class="pb-2 text-right">Ausg. nicht uml.</th>
+                        <th class="pb-2 text-right">Ausg. Gesamt</th>
+                        <th class="pb-2 text-right">Netto-Cashflow</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                    {% for r in objekt_rows %}
+                    <tr>
+                        <td class="py-2 font-medium text-slate-900 whitespace-nowrap dark:text-white">{{ r.monat | de_month }}</td>
+                        <td class="py-2 font-medium text-slate-800 dark:text-slate-200">{{ r.objekt_bezeichnung }}</td>
+                        <td class="py-2 text-right tabular-nums">{{ r.gesamt_soll | eur }}</td>
+                        <td class="py-2 text-right tabular-nums">{{ r.ist_mieteinnahmen | eur }}</td>
+                        <td class="py-2 text-right tabular-nums text-purple-700 dark:text-purple-400">{{ r.ist_sonderzahlungen | eur }}</td>
+                        <td class="py-2 text-right tabular-nums text-blue-700 dark:text-blue-400">{{ r.ausgaben_umlagefaehig | eur }}</td>
+                        <td class="py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{{ r.ausgaben_nicht_umlagefaehig | eur }}</td>
+                        <td class="py-2 text-right tabular-nums font-medium text-rose-700 dark:text-rose-400">{{ r.ausgaben_gesamt | eur }}</td>
+                        <td class="py-2 text-right font-bold tabular-nums {% if r.netto_cashflow >= 0 %}text-emerald-700 dark:text-emerald-400{% else %}text-rose-700 dark:text-rose-400{% endif %}">
+                            {{ r.netto_cashflow | eur }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="9" class="py-6 text-center text-slate-500 dark:text-slate-400">Keine Daten für diesen Zeitraum.</td></tr>
+                    {% endfor %}
+                </tbody>
+                {% if objekt_rows %}
+                <tfoot class="border-t-2 border-slate-300 bg-slate-50 font-semibold text-sm dark:border-slate-700 dark:bg-slate-800/80">
+                    <tr>
+                        <td colspan="2" class="py-2.5 pl-2">Portfolio-Summe Zeitraum</td>
+                        <td class="py-2.5 text-right tabular-nums">{{ objekt_summen.gesamt_soll | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums">{{ objekt_summen.ist_mieteinnahmen | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums text-purple-700 dark:text-purple-400">{{ objekt_summen.ist_sonderzahlungen | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums text-blue-700 dark:text-blue-400">{{ objekt_summen.ausgaben_umlagefaehig | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums">{{ objekt_summen.ausgaben_nicht_umlagefaehig | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums text-rose-700 dark:text-rose-400">{{ objekt_summen.ausgaben_gesamt | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums {% if objekt_summen.netto_cashflow >= 0 %}text-emerald-700 dark:text-emerald-400{% else %}text-rose-700 dark:text-rose-400{% endif %}">
+                            {{ objekt_summen.netto_cashflow | eur }}
+                        </td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</div>

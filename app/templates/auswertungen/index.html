@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Soll/Ist-Auswertungen &amp; Export – Hausverwaltung{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Soll/Ist-Auswertungen &amp; Abrechner-Export</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">
+            Dynamische Soll-Berechnung über Kalendermonate (taggenaue Anteiligkeit bei unterjährigem Ein-/Auszug)
+        </p>
+    </div>
+</div>
+
+<!-- Ein-Klick-Export für externen Abrechner -->
+<section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900"
+         x-data="{ exportObjekt: '{{ objekte[0].id if objekte else '' }}', exportJahr: '{{ standard_jahr }}' }">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <h2 class="text-base font-semibold text-slate-900 dark:text-white">Export für externen Nebenkosten-Abrechner</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+                Exportiert alle Buchungen mit <code>umlagefaehig = true</code> eines Objekts und Jahres als CSV inkl. ZIP-Archiv aller Rechnungs-PDFs.
+            </p>
+        </div>
+        {% if objekte %}
+        <div class="flex flex-wrap items-end gap-3 text-sm">
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Objekt</label>
+                <select x-model="exportObjekt" class="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    {% for o in objekte %}
+                    <option value="{{ o.id }}">{{ o.bezeichnung }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Abrechnungsjahr</label>
+                <input type="number" x-model="exportJahr" min="1990" max="2100" class="mt-1 w-24 rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <a :href="'/api/exporte/objekt/' + exportObjekt + '/jahr/' + exportJahr + '/csv'"
+               class="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                CSV herunterladen
+            </a>
+            <a :href="'/api/exporte/objekt/' + exportObjekt + '/jahr/' + exportJahr + '/zip'"
+               class="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-700 dark:hover:bg-emerald-500">
+                ZIP (CSV + PDFs) exportieren
+            </a>
+        </div>
+        {% else %}
+        <span class="text-xs text-slate-500 dark:text-slate-400">Bitte zuerst ein Objekt anlegen.</span>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Filterleiste für dynamische Soll/Ist-Tabellen -->
+<section class="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+    <form hx-get="/auswertungen/tabellen"
+          hx-target="#auswertungen-ergebnis"
+          hx-trigger="change, submit"
+          class="flex flex-wrap items-end gap-3 text-sm">
+        <div>
+            <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Von Monat</label>
+            <input type="month" name="von_monat" value="{{ von_monat_str }}" class="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Bis Monat</label>
+            <input type="month" name="bis_monat" value="{{ bis_monat_str }}" class="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Objekt</label>
+            <select name="objekt_id" class="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                <option value="">Alle Objekte (Portfolio)</option>
+                {% for o in objekte %}
+                <option value="{{ o.id }}">{{ o.bezeichnung }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Wohneinheit</label>
+            <select name="wohneinheit_id" class="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                <option value="">Alle Wohneinheiten</option>
+                {% for e in einheiten %}
+                <option value="{{ e.id }}">{{ e.objekt.bezeichnung }} · {{ e.bezeichnung }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">
+            Auswerten
+        </button>
+        <span class="htmx-indicator text-xs text-slate-500 dark:text-slate-400">Berechne…</span>
+    </form>
+</section>
+
+<div id="auswertungen-ergebnis">
+    {% include "auswertungen/partials/tabellen.html" %}
+</div>
+{% endblock %}

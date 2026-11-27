@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – Private Hausverwaltung{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Portfolio-Dashboard</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">
+            Übersicht für {{ summary.monat_start | de_month }} – laufender Betrieb, offene Kautionsraten &amp; Soll/Ist-Abweichungen
+        </p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        <a href="/buchungen" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">
+            + Neue Buchung
+        </a>
+        <a href="/auswertungen" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
+            Soll/Ist &amp; Export
+        </a>
+    </div>
+</div>
+
+<!-- KPI-Karten -->
+<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Bestand</div>
+        <div class="mt-2 flex items-baseline justify-between">
+            <span class="text-2xl font-bold text-slate-900 dark:text-white">{{ summary.anzahl_einheiten }} Einheiten</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400">{{ summary.anzahl_objekte }} Objekte</span>
+        </div>
+        <div class="mt-2 flex gap-3 text-xs">
+            <span class="text-emerald-700 dark:text-emerald-400">{{ summary.vermietete_einheiten }} vermietet</span>
+            <span class="{% if summary.leerstand_einheiten > 0 %}font-semibold text-rose-600 dark:text-rose-400{% else %}text-slate-500 dark:text-slate-400{% endif %}">
+                {{ summary.leerstand_einheiten }} Leerstand
+            </span>
+        </div>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Mieteinnahmen ({{ summary.monat_start | de_month }})</div>
+        <div class="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{{ summary.monat_ist_mieteinnahmen | eur }}</div>
+        <div class="mt-2 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+            Soll: {{ summary.monat_soll_gesamt | eur }}
+        </div>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Ausgaben ({{ summary.monat_start | de_month }})</div>
+        <div class="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{{ summary.monat_ausgaben_gesamt | eur }}</div>
+        <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">Inkl. umlagefähiger &amp; Eigentümerkosten</div>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Netto-Cashflow ({{ summary.monat_start | de_month }})</div>
+        <div class="mt-2 text-2xl font-bold tabular-nums {% if summary.monat_netto_cashflow >= 0 %}text-emerald-700 dark:text-emerald-400{% else %}text-rose-700 dark:text-rose-400{% endif %}">
+            {{ summary.monat_netto_cashflow | eur }}
+        </div>
+        <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">Ist-Einnahmen minus Ausgaben</div>
+    </div>
+</div>
+
+<!-- Hinweise & offene Posten -->
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <!-- Soll/Ist-Abweichungen (Rückstände letzte 3 Monate) -->
+    <section class="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+            <div>
+                <h2 class="text-base font-semibold text-slate-900 dark:text-white">Soll/Ist-Abweichungen (Rückstände)</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Einheiten mit negativem Mietsaldo in den letzten 3 Monaten</p>
+            </div>
+            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {% if summary.soll_ist_abweichungen %}bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-200{% else %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200{% endif %}">
+                {{ summary.soll_ist_abweichungen | length }}
+            </span>
+        </div>
+        <div class="p-5">
+            {% if summary.soll_ist_abweichungen %}
+                <div class="overflow-x-auto">
+                    <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                        <thead>
+                            <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                                <th class="pb-2">Monat</th>
+                                <th class="pb-2">Einheit</th>
+                                <th class="pb-2 text-right">Soll</th>
+                                <th class="pb-2 text-right">Ist</th>
+                                <th class="pb-2 text-right">Saldo</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                            {% for row in summary.soll_ist_abweichungen %}
+                            <tr>
+                                <td class="py-2 text-slate-700 dark:text-slate-300">{{ row.monat | de_month }}</td>
+                                <td class="py-2">
+                                    <div class="font-medium text-slate-900 dark:text-white">{{ row.wohneinheit_bezeichnung }}</div>
+                                    <div class="text-xs text-slate-500 dark:text-slate-400">{{ row.objekt_bezeichnung }}</div>
+                                </td>
+                                <td class="py-2 text-right tabular-nums">{{ row.gesamt_soll | eur }}</td>
+                                <td class="py-2 text-right tabular-nums">{{ row.ist_zahlungseingang | eur }}</td>
+                                <td class="py-2 text-right font-semibold tabular-nums text-rose-600 dark:text-rose-400">{{ row.differenz_saldo | eur }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-sm text-emerald-700 dark:text-emerald-400">Keine offenen Mietrückstände in den letzten 3 Monaten.</p>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Offene Kautionsraten -->
+    <section class="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+            <div>
+                <h2 class="text-base font-semibold text-slate-900 dark:text-white">Offene Kautionsraten</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Mietverträge mit noch nicht vollständig eingezahlter Kaution</p>
+            </div>
+            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {% if summary.offene_kautionen %}bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200{% else %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200{% endif %}">
+                {{ summary.offene_kautionen | length }}
+            </span>
+        </div>
+        <div class="p-5">
+            {% if summary.offene_kautionen %}
+                <div class="overflow-x-auto">
+                    <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                        <thead>
+                            <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                                <th class="pb-2">Kaution</th>
+                                <th class="pb-2">Status</th>
+                                <th class="pb-2 text-right">Vereinbart</th>
+                                <th class="pb-2 text-right">Eingezahlt</th>
+                                <th class="pb-2 text-right">Offen</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                            {% for k in summary.offene_kautionen %}
+                            <tr>
+                                <td class="py-2">
+                                    <a href="/kautionen/{{ k.kaution_id }}" class="font-medium text-slate-900 underline decoration-slate-300 hover:text-emerald-700 dark:text-white dark:decoration-slate-600 dark:hover:text-emerald-400">
+                                        Vertrag #{{ k.mietvertrag_id }}
+                                    </a>
+                                    <div class="text-xs text-slate-500 dark:text-slate-400">{{ k.anlageform.value }}</div>
+                                </td>
+                                <td class="py-2">
+                                    <span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+                                        {{ k.status.value }}
+                                    </span>
+                                </td>
+                                <td class="py-2 text-right tabular-nums">{{ k.vereinbarte_summe | eur }}</td>
+                                <td class="py-2 text-right tabular-nums">{{ k.eingezahlt_summe | eur }}</td>
+                                <td class="py-2 text-right font-semibold tabular-nums text-amber-700 dark:text-amber-400">{{ k.offene_einzahlung | eur }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-sm text-emerald-700 dark:text-emerald-400">Alle vereinbarten Kautionen sind vollständig eingezahlt.</p>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}

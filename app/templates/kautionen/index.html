@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Kautionsverwaltung – Hausverwaltung{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Getrennte Kautionsverwaltung</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">
+        Verwaltung vereinbarter Kautionen, 3-Raten-Einzahlungen, Zinsgutschriften, Einbehalte und Rückzahlungen
+    </p>
+</div>
+
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Kautionskonten</h2>
+        <div class="overflow-x-auto">
+            <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                <thead>
+                    <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                        <th class="pb-2">Mietvertrag</th>
+                        <th class="pb-2">Anlageform / Ref.</th>
+                        <th class="pb-2">Status</th>
+                        <th class="pb-2 text-right">Vereinbart</th>
+                        <th class="pb-2 text-right">Bestand</th>
+                        <th class="pb-2 text-right">Offen</th>
+                        <th class="pb-2 text-right">Aktion</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                    {% for k in kautionen %}
+                    <tr>
+                        <td class="py-2.5 font-medium text-slate-900 dark:text-white">Vertrag #{{ k.mietvertrag_id }}</td>
+                        <td class="py-2.5 text-xs text-slate-600 dark:text-slate-300">
+                            <div>{{ k.anlageform.value }}</div>
+                            <div>{{ k.kontoreferenz or '–' }}</div>
+                        </td>
+                        <td class="py-2.5">
+                            <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium
+                                {% if k.status.value == 'vollstaendig' %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200
+                                {% elif k.status.value in ['offen', 'teilweise_eingegangen'] %}bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200
+                                {% else %}bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300{% endif %}">
+                                {{ k.status.value }}
+                            </span>
+                        </td>
+                        <td class="py-2.5 text-right tabular-nums">{{ k.vereinbarte_summe | eur }}</td>
+                        <td class="py-2.5 text-right font-semibold tabular-nums">{{ k.aktueller_bestand | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums {% if k.offene_einzahlung > 0 %}font-semibold text-amber-700 dark:text-amber-400{% else %}text-slate-500 dark:text-slate-400{% endif %}">
+                            {{ k.offene_einzahlung | eur }}
+                        </td>
+                        <td class="py-2.5 text-right">
+                            <a href="/kautionen/{{ k.kaution_id }}" class="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-800 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                                Bewegungen
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" class="py-6 text-center text-slate-500 dark:text-slate-400">Noch keine Kautionen angelegt.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Kaution für Mietvertrag anlegen</h2>
+        <form action="/kautionen" method="post" class="space-y-3 text-sm">
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Mietvertrag *</label>
+                <select name="mietvertrag_id" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    <option value="">– Vertrag wählen –</option>
+                    {% for v in vertraege_ohne_kaution %}
+                    <option value="{{ v.id }}" {% if preselect_vertrag_id == v.id %}selected{% endif %}>
+                        #{{ v.id }} · {{ v.wohneinheit.objekt.bezeichnung }} · {{ v.wohneinheit.bezeichnung }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Vereinbarte Summe (EUR) *</label>
+                <input type="number" step="0.01" min="0" name="vereinbarte_summe" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Anlageform *</label>
+                <select name="anlageform" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    {% for af in anlageformen %}
+                    <option value="{{ af.value }}">{{ af.value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Kontoreferenz / Sparbuch-Nr.</label>
+                <input type="text" name="kontoreferenz" maxlength="120" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Notizen</label>
+                <textarea name="notizen" rows="2" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"></textarea>
+            </div>
+            <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">
+                Kaution anlegen
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

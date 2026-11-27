@@ -1,0 +1,83 @@
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div class="mb-4 flex items-center justify-between">
+            <div>
+                <h2 class="text-base font-semibold text-slate-900 dark:text-white">Historisierte Miet- &amp; Abschlagskonditionen</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Überlappungsfrei gesichert über PostgreSQL GiST-Exclusion-Constraint</p>
+            </div>
+        </div>
+
+        {% include "partials/alert.html" %}
+
+        <div class="overflow-x-auto">
+            <table class="table-clean min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                <thead>
+                    <tr class="text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
+                        <th class="pb-2">Gültig ab</th>
+                        <th class="pb-2">Gültig bis</th>
+                        <th class="pb-2 text-right">Kaltmiete</th>
+                        <th class="pb-2 text-right">BK-VZ</th>
+                        <th class="pb-2 text-right">HK-VZ</th>
+                        <th class="pb-2 text-right">Gesamt</th>
+                        <th class="pb-2">Änderungsgrund</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800/70">
+                    {% for k in konditionen %}
+                    <tr class="{% if k.gueltig_bis is none %}bg-emerald-50/40 dark:bg-emerald-950/30{% endif %}">
+                        <td class="py-2.5 font-medium text-slate-900 dark:text-white">{{ k.gueltig_ab | de_date }}</td>
+                        <td class="py-2.5 text-slate-600 dark:text-slate-300">
+                            {% if k.gueltig_bis %}{{ k.gueltig_bis | de_date }}{% else %}<span class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">aktuell offen</span>{% endif %}
+                        </td>
+                        <td class="py-2.5 text-right tabular-nums">{{ k.kaltmiete | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums">{{ k.betriebskosten_vorauszahlung | eur }}</td>
+                        <td class="py-2.5 text-right tabular-nums">{{ k.heizkosten_vorauszahlung | eur }}</td>
+                        <td class="py-2.5 text-right font-semibold tabular-nums">{{ k.gesamtmiete | eur }}</td>
+                        <td class="py-2.5 text-xs text-slate-600 dark:text-slate-300">{{ k.aenderungsgrund }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Stichtags-Anpassung -->
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="mb-2 text-base font-semibold text-slate-900 dark:text-white">Miete / Abschlag zum Stichtag anpassen</h2>
+        <p class="mb-4 text-xs text-slate-500 dark:text-slate-400">
+            Schließt den bisherigen Zeitraum automatisch zum Vortag des Stichtags und legt ab dem Stichtag die neuen Werte an.
+        </p>
+
+        {% set letzte = konditionen[-1] if konditionen else none %}
+        <form hx-post="/mietvertraege/{{ vertrag.id }}/konditionen/anpassen"
+              hx-target="#konditionen-bereich"
+              hx-swap="innerHTML"
+              class="space-y-3 text-sm">
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Stichtag (gültig ab) *</label>
+                <input type="date" name="stichtag" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Kaltmiete *</label>
+                    <input type="number" step="0.01" min="0" name="kaltmiete" value="{{ letzte.kaltmiete if letzte else '0.00' }}" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">BK-VZ *</label>
+                    <input type="number" step="0.01" min="0" name="betriebskosten_vorauszahlung" value="{{ letzte.betriebskosten_vorauszahlung if letzte else '0.00' }}" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">HK-VZ *</label>
+                    <input type="number" step="0.01" min="0" name="heizkosten_vorauszahlung" value="{{ letzte.heizkosten_vorauszahlung if letzte else '0.00' }}" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Änderungsgrund *</label>
+                <input type="text" name="aenderungsgrund" required maxlength="250" placeholder="z. B. NK-Anpassung nach Abrechnung 2025" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <button type="submit" class="w-full rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-700 dark:hover:bg-emerald-500">
+                Zum Stichtag anpassen
+            </button>
+        </form>
+    </div>
+</div>

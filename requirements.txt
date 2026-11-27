@@ -1,0 +1,16 @@
+# Web-Framework & ASGI-Server
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# Datenbank & Migrationen (Async PostgreSQL)
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+
+# Konfiguration & Validierung
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# Server-Side Rendering & Templates
+jinja2==3.1.5

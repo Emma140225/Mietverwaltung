@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block title %}Buchungsmaske &amp; Journal – Hausverwaltung{% endblock %}
+
+{% block content %}
+<script>
+window._buchungData = {
+    einheiten: {{ einheiten_json | safe }},
+    vertraege: {{ vertraege_json | safe }}
+};
+</script>
+<div x-data="{
+    einheiten: window._buchungData.einheiten,
+    vertraege: window._buchungData.vertraege,
+    selectedObjekt: '',
+    selectedEinheit: '',
+    editBuchung: null,
+    get filteredEinheiten() {
+        if (!this.selectedObjekt) return this.einheiten;
+        return this.einheiten.filter(e => String(e.objekt_id) === String(this.selectedObjekt));
+    },
+    get filteredVertraege() {
+        return this.vertraege.filter(v => {
+            if (this.selectedObjekt && String(v.objekt_id) !== String(this.selectedObjekt)) return false;
+            if (this.selectedEinheit && String(v.wohneinheit_id) !== String(this.selectedEinheit)) return false;
+            return true;
+        });
+    }
+}">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Buchungsmaske &amp; Zahlungsjournal</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400">
+                Lückenlose Erfassung von Einnahmen, umlagefähigen Betriebskosten und Eigentümerkosten inkl. PDF-Beleg-Upload
+            </p>
+        </div>
+    </div>
+
+    <!-- Schnellerfassung (Manuelle Buchungsmaske) -->
+    <section class="mb-8 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Neue Buchung erfassen</h2>
+        <form action="/buchungen" method="post" enctype="multipart/form-data" class="grid grid-cols-1 gap-3 text-sm md:grid-cols-6">
+            <div class="md:col-span-2">
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Objekt *</label>
+                <select name="objekt_id" required x-model="selectedObjekt" @change="selectedEinheit = ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    <option value="">– Objekt wählen –</option>
+                    {% for o in objekte %}
+                    <option value="{{ o.id }}">{{ o.bezeichnung }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Wohneinheit (leer = Gesamtobjektkosten)</label>
+                <select name="wohneinheit_id" x-model="selectedEinheit" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    <option value="">Gesamtobjekt (keine einzelne Einheit)</option>
+                    <template x-for="e in filteredEinheiten" :key="e.id">
+                        <option :value="e.id" x-text="e.label"></option>
+                    </template>
+                </select>
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Mietvertrag (optional)</label>
+                <select name="mietvertrag_id" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    <option value="">– kein Vertrag –</option>
+                    <template x-for="v in filteredVertraege" :key="v.id">
+                        <option :value="v.id" x-text="v.label"></option>
+                    </template>
+                </select>
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Kostenart *</label>
+                <select name="kostenart_id" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    <option value="">– Kostenart wählen –</option>
+                    <optgroup label="Einnahmen">
+                        {% for ka in kostenarten if ka.richtung.value == 'einnahme' %}
+                        <option value="{{ ka.id }}">{{ ka.name }}</option>
+                        {% endfor %}
+                    </optgroup>
+                    <optgroup label="Ausgaben (umlagefähig – BetrKV)">
+                        {% for ka in kostenarten if ka.richtung.value == 'ausgabe' and ka.umlagefaehig %}
+                        <option value="{{ ka.id }}">{{ ka.name }}{% if ka.betrkv_ziffer %} ({{ ka.betrkv_ziffer }}){% endif %}</option>
+                        {% endfor %}
+                    </optgroup>
+                    <optgroup label="Ausgaben (nicht umlagefähig – Eigentümer)">
+                        {% for ka in kostenarten if ka.richtung.value == 'ausgabe' and not ka.umlagefaehig %}
+                        <option value="{{ ka.id }}">{{ ka.name }}</option>
+                        {% endfor %}
+                    </optgroup>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Buchungsdatum *</label>
+                <input type="date" name="buchungsdatum" value="{{ heute.isoformat() }}" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Leistung von</label>
+                <input type="date" name="leistungszeitraum_von" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Leistung bis</label>
+                <input type="date" name="leistungszeitraum_bis" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Betrag (EUR) *</label>
+                <input type="number" step="0.01" name="betrag" required placeholder="0.00" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Empfänger / Sender *</label>
+                <input type="text" name="empfaenger_sender" required maxlength="200" placeholder="z. B. Stadtwerke / Max Mustermann" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Verwendungszweck *</label>
+                <input type="text" name="verwendungszweck" required maxlength="300" placeholder="z. B. Miete 11/2026 oder Grundsteuer Q4" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Belegnummer</label>
+                <input type="text" name="belegnummer" maxlength="80" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div class="flex items-end pb-2">
+                <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300">
+                    <input type="checkbox" name="ist_sonderzahlung" value="true" class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+                    <span>Sonderzahlung (z. B. NK-Nachzahlung)</span>
+                </label>
+            </div>
+
+            <div class="md:col-span-4">
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Notizen</label>
+                <input type="text" name="notizen" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Beleg-PDF direkt anhängen (optional)</label>
+                <input type="file" name="beleg_pdf" accept="application/pdf,.pdf" class="mt-1 w-full text-xs text-slate-700 dark:text-slate-300">
+            </div>
+
+            <div class="md:col-span-6 flex justify-end pt-1">
+                <button type="submit" class="rounded-lg bg-slate-900 px-5 py-2.5 font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">
+                    Buchung speichern
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <!-- Filter & Journal-Tabelle -->
+    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <h2 class="text-base font-semibold text-slate-900 dark:text-white">Buchungsjournal</h2>
+            <form hx-get="/buchungen/tabelle"
+                  hx-target="#buchungen-tabelle"
+                  hx-trigger="change, submit"
+                  class="flex flex-wrap items-end gap-2 text-xs">
+                <div>
+                    <label class="block font-medium text-slate-600 dark:text-slate-300">Objekt</label>
+                    <select name="objekt_id" class="mt-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                        <option value="">Alle Objekte</option>
+                        {% for o in objekte %}
+                        <option value="{{ o.id }}">{{ o.bezeichnung }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-600 dark:text-slate-300">Umlagefähigkeit</label>
+                    <select name="umlagefaehig" class="mt-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                        <option value="">Alle</option>
+                        <option value="true">Nur umlagefähig (BetrKV)</option>
+                        <option value="false">Nicht umlagefähig</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-600 dark:text-slate-300">Von</label>
+                    <input type="date" name="von_datum" class="mt-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-600 dark:text-slate-300">Bis</label>
+                    <input type="date" name="bis_datum" class="mt-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <button type="submit" class="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                    Filtern
+                </button>
+            </form>
+        </div>
+
+        <div id="buchungen-tabelle">
+            {% include "buchungen/partials/tabelle.html" %}
+        </div>
+    </section>
+
+    <!-- Bearbeitungs-Modal mit Optimistic Locking (`version`) -->
+    <div x-show="editBuchung" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4">
+        <div class="w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900" @click.away="editBuchung = null">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
+                    Buchung #<span x-text="editBuchung?.id"></span> bearbeiten
+                    <span class="ml-2 rounded bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        Version <span x-text="editBuchung?.version"></span>
+                    </span>
+                </h3>
+                <button type="button" @click="editBuchung = null" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">✕</button>
+            </div>
+            <form :action="'/buchungen/' + editBuchung?.id + '/update'" method="post" class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                <input type="hidden" name="version" :value="editBuchung?.version">
+                <input type="hidden" name="objekt_id" :value="editBuchung?.objekt_id">
+                <input type="hidden" name="wohneinheit_id" :value="editBuchung?.wohneinheit_id || ''">
+                <input type="hidden" name="mietvertrag_id" :value="editBuchung?.mietvertrag_id || ''">
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Kostenart *</label>
+                    <select name="kostenart_id" required x-effect="$el.value = editBuchung ? String(editBuchung.kostenart_id) : ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                        {% for ka in kostenarten %}
+                        <option value="{{ ka.id }}">{{ ka.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Buchungsdatum *</label>
+                    <input type="date" name="buchungsdatum" required :value="editBuchung?.buchungsdatum" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Leistungszeitraum von</label>
+                    <input type="date" name="leistungszeitraum_von" :value="editBuchung?.leistungszeitraum_von || ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Leistungszeitraum bis</label>
+                    <input type="date" name="leistungszeitraum_bis" :value="editBuchung?.leistungszeitraum_bis || ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Betrag (EUR) *</label>
+                    <input type="number" step="0.01" name="betrag" required :value="editBuchung?.betrag" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Belegnummer</label>
+                    <input type="text" name="belegnummer" :value="editBuchung?.belegnummer || ''" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Empfänger / Sender *</label>
+                    <input type="text" name="empfaenger_sender" required :value="editBuchung?.empfaenger_sender" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Verwendungszweck *</label>
+                    <input type="text" name="verwendungszweck" required :value="editBuchung?.verwendungszweck" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300">
+                        <input type="checkbox" name="ist_sonderzahlung" value="true" :checked="editBuchung?.ist_sonderzahlung" class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+                        <span>Sonderzahlung</span>
+                    </label>
+                </div>
+                <div class="sm:col-span-2 flex justify-end gap-2 pt-2">
+                    <button type="button" @click="editBuchung = null" class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Abbrechen</button>
+                    <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500">Änderungen speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
